@@ -1,9 +1,15 @@
-import { EB_Garamond } from 'next/font/google'
+import { Share_Tech_Mono, DotGothic16 } from 'next/font/google'
 
-const garamond = EB_Garamond({ 
+const mono = Share_Tech_Mono({ 
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-garamond',
+  weight: ['400'],
+  variable: '--font-mono',
+})
+
+const dotGothic = DotGothic16({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-display',
 })
 
 export const metadata = {
@@ -14,7 +20,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={garamond.variable} style={{ margin: 0 }}>
+      <body className={`${mono.variable} ${dotGothic.variable}`} style={{ margin: 0 }}>
         {children}
       </body>
     </html>

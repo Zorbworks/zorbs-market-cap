@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function Home() {
   const [data, setData] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [changes, setChanges] = useState({ hour: null, day: null, week: null, month: null, year: null });
+  const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -25,78 +29,267 @@ export default function Home() {
     }
   };
 
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch('/api/history');
+      const result = await response.json();
+
+      if (response.ok) {
+        setHistory(result.history || []);
+        setChanges(result.changes || { hour: null, day: null, week: null, month: null, year: null });
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  };
+
+  const fetchZorb = async () => {
+    try {
+      const response = await fetch('/api/zorb');
+      const result = await response.json();
+
+      if (response.ok && result.imageUrl) {
+        setZorb(result);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Zorb:', err);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchHistory();
+    fetchZorb();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    const dataInterval = setInterval(fetchData, 30000);
+    const historyInterval = setInterval(fetchHistory, 60000);
+    const zorbInterval = setInterval(fetchZorb, 60000);
+    
+    return () => {
+      clearInterval(dataInterval);
+      clearInterval(historyInterval);
+      clearInterval(zorbInterval);
+    };
   }, []);
 
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '—';
-    if (num < 0.0001) return '< 0.0001';
+    if (num < 0.0001) return '<0.0001';
     if (num < 1) return num.toFixed(4);
     if (num < 100) return num.toFixed(2);
     return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
   };
 
-  const formatTime = (isoString) => {
-    return new Date(isoString).toLocaleTimeString();
+  const formatPercent = (num) => {
+    if (num === null || num === undefined) return '—';
+    const prefix = num >= 0 ? '+' : '';
+    return `${prefix}${num.toFixed(2)}%`;
   };
+
+  const formatTime = (isoString) => {
+    return new Date(isoString).toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
+  const formatChartTime = (timestamp) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const chartData = history.map(point => ({
+    time: point.timestamp,
+    floor: point.floorPrice,
+  }));
 
   return (
     <main style={styles.container}>
+      {/* Zorb background */}
+      {zorb?.imageUrl && (
+        <div style={styles.zorbContainer}>
+          <img 
+            src={zorb.imageUrl} 
+            alt={zorb.name}
+            style={styles.zorbImage}
+          />
+        </div>
+      )}
+      
+      <div style={styles.overlay} />
+
       {loading && !data ? (
-        <div style={styles.loadingView}>
-          <span style={styles.zorb}>◉</span>
-          <p style={styles.loadingText}>Loading...</p>
+        <div style={styles.loading}>
+          <p style={styles.loadingText}>LOADING</p>
         </div>
       ) : error ? (
         <div style={styles.errorView}>
-          <h1 style={styles.title}>Zorbs</h1>
-          <p style={styles.error}>{error}</p>
+          <p style={styles.errorText}>{error.toUpperCase()}</p>
           <button onClick={fetchData} style={styles.retryButton}>
-            Retry
+            RETRY
           </button>
         </div>
       ) : (
-        <div style={styles.dataView}>
-          <div style={styles.header}>
-            <span style={styles.zorb}>◉</span>
-            <h1 style={styles.titleSmall}>Zorbs</h1>
-          </div>
+        <div style={styles.dashboard}>
+          {/* Header */}
+          <header style={styles.header}>
+            <span style={styles.logo}>ZORBS</span>
+            <a 
+              href="https://opensea.io/collection/zorbs-eth" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={styles.buyButton}
+            >
+              BUY/SELL
+            </a>
+          </header>
 
-          <div style={styles.metric}>
-            <span style={styles.label}>Market Cap</span>
-            <span style={styles.value}>
-              {formatNumber(data.marketCap)}
-              <span style={styles.unit}> ETH</span>
-            </span>
-          </div>
-
-          <div style={styles.divider} />
-
-          <div style={styles.row}>
-            <div style={styles.smallMetric}>
-              <span style={styles.smallLabel}>Floor</span>
-              <span style={styles.smallValue}>
-                {formatNumber(data.floorPrice)} ETH
-              </span>
-            </div>
-            <div style={styles.smallMetric}>
-              <span style={styles.smallLabel}>Supply</span>
-              <span style={styles.smallValue}>
-                {data.totalSupply?.toLocaleString() || '—'}
+          {/* Main stats row */}
+          <div style={styles.mainStats}>
+            <div style={styles.primaryStat}>
+              <span style={styles.statLabel}>MARKET CAP</span>
+              <span style={styles.primaryValue}>
+                {formatNumber(data.marketCap)}
+                <span style={styles.unit}>ETH</span>
               </span>
             </div>
           </div>
 
-          {data.timestamp && (
-            <p style={styles.timestamp}>
-              Updated {formatTime(data.timestamp)}
-            </p>
+          {/* Secondary stats */}
+          <div style={styles.secondaryStats}>
+            <div style={styles.stat}>
+              <span style={styles.statLabel}>FLOOR</span>
+              <span style={styles.statValue}>{formatNumber(data.floorPrice)} ETH</span>
+            </div>
+            <div style={styles.stat}>
+              <span style={styles.statLabel}>SUPPLY</span>
+              <span style={styles.statValue}>{data.totalSupply?.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* Change indicators */}
+          <div style={styles.changesRow}>
+            <div style={styles.changeBox}>
+              <span style={styles.changeLabel}>1H</span>
+              <span style={{
+                ...styles.changeValue,
+                color: changes.hour === null ? 'rgba(255,255,255,0.5)' : 
+                       changes.hour >= 0 ? '#4ade80' : '#f87171'
+              }}>
+                {formatPercent(changes.hour)}
+              </span>
+            </div>
+            <div style={styles.changeBox}>
+              <span style={styles.changeLabel}>24H</span>
+              <span style={{
+                ...styles.changeValue,
+                color: changes.day === null ? 'rgba(255,255,255,0.5)' : 
+                       changes.day >= 0 ? '#4ade80' : '#f87171'
+              }}>
+                {formatPercent(changes.day)}
+              </span>
+            </div>
+            <div style={styles.changeBox}>
+              <span style={styles.changeLabel}>7D</span>
+              <span style={{
+                ...styles.changeValue,
+                color: changes.week === null ? 'rgba(255,255,255,0.5)' : 
+                       changes.week >= 0 ? '#4ade80' : '#f87171'
+              }}>
+                {formatPercent(changes.week)}
+              </span>
+            </div>
+            <div style={styles.changeBox}>
+              <span style={styles.changeLabel}>30D</span>
+              <span style={{
+                ...styles.changeValue,
+                color: changes.month === null ? 'rgba(255,255,255,0.5)' : 
+                       changes.month >= 0 ? '#4ade80' : '#f87171'
+              }}>
+                {formatPercent(changes.month)}
+              </span>
+            </div>
+            <div style={styles.changeBox}>
+              <span style={styles.changeLabel}>1Y</span>
+              <span style={{
+                ...styles.changeValue,
+                color: changes.year === null ? 'rgba(255,255,255,0.5)' : 
+                       changes.year >= 0 ? '#4ade80' : '#f87171'
+              }}>
+                {formatPercent(changes.year)}
+              </span>
+            </div>
+          </div>
+
+          {/* Chart */}
+          {chartData.length > 1 && (
+            <div style={styles.chartContainer}>
+              <span style={styles.chartLabel}>FLOOR PRICE — 30D</span>
+              <ResponsiveContainer width="100%" height={150}>
+                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="floorGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#fff" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#fff" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="time" 
+                    tickFormatter={formatChartTime}
+                    stroke="rgba(255,255,255,0.3)"
+                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    domain={['auto', 'auto']}
+                    stroke="rgba(255,255,255,0.3)"
+                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={50}
+                    tickFormatter={(v) => v.toFixed(4)}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'rgba(0,0,0,0.8)', 
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: 4,
+                      fontSize: 12,
+                    }}
+                    labelFormatter={(t) => new Date(t).toLocaleString()}
+                    formatter={(v) => [`${v.toFixed(4)} ETH`, 'Floor']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="floor" 
+                    stroke="#fff" 
+                    strokeWidth={2}
+                    fill="url(#floorGradient)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           )}
+
+          {chartData.length <= 1 && (
+            <div style={styles.noChart}>
+              <span style={styles.noChartText}>
+                COLLECTING DATA — CHART AVAILABLE SOON
+              </span>
+            </div>
+          )}
+
+          {/* Footer info */}
+          <div style={styles.footerInfo}>
+            <span style={styles.updated}>UPDATED {formatTime(data.timestamp)}</span>
+            {zorb && (
+              <span style={styles.zorbCredit}>LAST TRANSFER: {zorb.name}</span>
+            )}
+          </div>
         </div>
       )}
     </main>
@@ -106,123 +299,234 @@ export default function Home() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#fafafa',
+    minWidth: '100vw',
+    backgroundColor: '#000',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: 'var(--font-garamond), Georgia, serif',
-    color: '#1a1a1a',
+    fontFamily: 'var(--font-mono), "Share Tech Mono", monospace',
+    color: '#fff',
     padding: '2rem',
+    position: 'relative',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
   },
-  loadingView: {
+  zorbContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '150vmax',
+    height: '150vmax',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
+  zorbImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    opacity: 0.95,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%)',
+    pointerEvents: 'none',
+  },
+  loading: {
     textAlign: 'center',
+    position: 'relative',
+    zIndex: 1,
   },
   loadingText: {
-    fontSize: '1.25rem',
-    color: '#888',
-    marginTop: '1rem',
+    fontSize: '0.875rem',
+    fontWeight: '400',
+    letterSpacing: '0.2em',
+    color: '#fff',
   },
   errorView: {
     textAlign: 'center',
-    maxWidth: '400px',
+    position: 'relative',
+    zIndex: 1,
   },
-  title: {
-    fontSize: '4rem',
+  errorText: {
+    fontSize: '0.875rem',
     fontWeight: '400',
-    margin: '0 0 1rem 0',
-    letterSpacing: '-0.02em',
+    letterSpacing: '0.1em',
+    color: '#fff',
+    marginBottom: '2rem',
   },
   retryButton: {
-    fontFamily: 'var(--font-garamond), Georgia, serif',
-    fontSize: '1.125rem',
+    fontFamily: 'var(--font-mono), "Share Tech Mono", monospace',
+    fontSize: '0.75rem',
+    fontWeight: '400',
+    letterSpacing: '0.15em',
     padding: '1rem 2rem',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: '#1a1a1a',
+    border: '2px solid #fff',
+    borderRadius: '0',
+    backgroundColor: 'transparent',
     color: '#fff',
     cursor: 'pointer',
-    marginTop: '1rem',
   },
-  dataView: {
-    textAlign: 'center',
-    maxWidth: '500px',
+  dashboard: {
     width: '100%',
+    maxWidth: '600px',
+    position: 'relative',
+    zIndex: 1,
   },
   header: {
     display: 'flex',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.75rem',
-    marginBottom: '3rem',
+    marginBottom: '2rem',
+    paddingBottom: '1rem',
+    borderBottom: '1px solid rgba(255,255,255,0.2)',
   },
-  zorb: {
-    fontSize: '2rem',
-    background: 'linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-  },
-  titleSmall: {
-    fontSize: '1.5rem',
+  logo: {
+    fontSize: '0.875rem',
     fontWeight: '400',
-    margin: 0,
-    letterSpacing: '-0.01em',
+    letterSpacing: '0.2em',
+    textShadow: '0 2px 8px rgba(0,0,0,0.5)',
   },
-  metric: {
+  updated: {
+    fontSize: '0.625rem',
+    fontWeight: '500',
+    letterSpacing: '0.1em',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  buyButton: {
+    fontSize: '0.75rem',
+    fontWeight: '400',
+    letterSpacing: '0.1em',
+    color: '#fff',
+    textDecoration: 'none',
+    padding: '0.5rem 1rem',
+    border: '1px solid rgba(255,255,255,0.5)',
+    borderRadius: '4px',
+    background: 'rgba(0,0,0,0.3)',
+    backdropFilter: 'blur(10px)',
+    transition: 'all 0.2s ease',
+  },
+  mainStats: {
     marginBottom: '2rem',
   },
-  label: {
-    display: 'block',
-    fontSize: '1rem',
-    color: '#888',
-    marginBottom: '0.5rem',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-  },
-  value: {
-    fontSize: '5rem',
-    fontWeight: '500',
-    lineHeight: 1,
-    letterSpacing: '-0.03em',
-  },
-  unit: {
-    fontSize: '2rem',
-    fontWeight: '400',
-    color: '#666',
-  },
-  divider: {
-    height: '1px',
-    backgroundColor: '#e0e0e0',
-    margin: '2rem 0',
-  },
-  row: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '4rem',
-  },
-  smallMetric: {
+  primaryStat: {
     textAlign: 'center',
   },
-  smallLabel: {
+  statLabel: {
     display: 'block',
-    fontSize: '0.875rem',
-    color: '#888',
-    marginBottom: '0.25rem',
-    textTransform: 'uppercase',
+    fontSize: '0.625rem',
+    fontWeight: '400',
+    letterSpacing: '0.15em',
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: '0.5rem',
+  },
+  primaryValue: {
+    fontSize: 'clamp(3rem, 12vw, 6rem)',
+    fontFamily: 'var(--font-display), "DotGothic16", monospace',
+    fontWeight: '400',
+    lineHeight: 1,
+    letterSpacing: '-0.02em',
+    textShadow: '0 4px 30px rgba(0,0,0,0.5)',
+  },
+  unit: {
+    fontSize: 'clamp(1rem, 3vw, 1.5rem)',
+    fontFamily: 'var(--font-display), "DotGothic16", monospace',
+    fontWeight: '400',
+    marginLeft: '0.5rem',
+    letterSpacing: '0.05em',
+    opacity: 0.7,
+  },
+  secondaryStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '3rem',
+    marginBottom: '2rem',
+    paddingBottom: '2rem',
+    borderBottom: '1px solid rgba(255,255,255,0.2)',
+  },
+  stat: {
+    textAlign: 'center',
+  },
+  statValue: {
+    fontSize: '1.25rem',
+    fontWeight: '400',
+    letterSpacing: '-0.01em',
+    textShadow: '0 2px 8px rgba(0,0,0,0.4)',
+  },
+  changesRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '0.75rem',
+    marginBottom: '2rem',
+    flexWrap: 'wrap',
+  },
+  changeBox: {
+    textAlign: 'center',
+    padding: '0.75rem 1rem',
+    background: 'rgba(0,0,0,0.3)',
+    borderRadius: '8px',
+    minWidth: '60px',
+    backdropFilter: 'blur(10px)',
+  },
+  changeLabel: {
+    display: 'block',
+    fontSize: '0.625rem',
+    fontWeight: '400',
     letterSpacing: '0.1em',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: '0.25rem',
   },
-  smallValue: {
-    fontSize: '1.5rem',
-    fontWeight: '500',
-  },
-  timestamp: {
-    fontSize: '0.875rem',
-    color: '#aaa',
-    marginTop: '2rem',
-  },
-  error: {
-    color: '#c53030',
+  changeValue: {
     fontSize: '1rem',
+    fontWeight: '400',
+    letterSpacing: '-0.01em',
+  },
+  chartContainer: {
     marginBottom: '1rem',
+    padding: '1rem',
+    background: 'rgba(0,0,0,0.3)',
+    borderRadius: '8px',
+    backdropFilter: 'blur(10px)',
+  },
+  chartLabel: {
+    display: 'block',
+    fontSize: '0.625rem',
+    fontWeight: '400',
+    letterSpacing: '0.1em',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: '1rem',
+  },
+  noChart: {
+    padding: '3rem',
+    textAlign: 'center',
+    background: 'rgba(0,0,0,0.3)',
+    borderRadius: '8px',
+    marginBottom: '1rem',
+    backdropFilter: 'blur(10px)',
+  },
+  noChartText: {
+    fontSize: '0.625rem',
+    fontWeight: '400',
+    letterSpacing: '0.1em',
+    color: 'rgba(255,255,255,0.4)',
+  },
+  footerInfo: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: '1rem',
+  },
+  zorbCredit: {
+    fontSize: '0.625rem',
+    fontWeight: '400',
+    letterSpacing: '0.1em',
+    color: 'rgba(255,255,255,0.3)',
+    textTransform: 'uppercase',
   },
 };

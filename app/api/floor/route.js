@@ -1,3 +1,5 @@
+import { kv } from '@vercel/kv';
+
 export async function GET() {
   const ZORBS_CONTRACT = '0xca21d4228cdcc68d4e23807e5e370c07577dd152';
   const apiKey = process.env.ALCHEMY_API_KEY;
@@ -43,12 +45,29 @@ export async function GET() {
       ? parseInt(metaData.totalSupply, 10) 
       : 0;
 
+    const timestamp = Date.now();
+    const marketCap = floorPrice * totalSupply;
+
+    // Log to KV if available (won't work locally without KV setup)
+    try {
+      if (process.env.KV_REST_API_URL) {
+        const dataPoint = { floorPrice, marketCap, totalSupply, timestamp };
+        // Store with timestamp key for history
+        await kv.zadd('zorbs:history', { score: timestamp, member: JSON.stringify(dataPoint) });
+        // Keep only last 1 year (31536000000ms)
+        const yearAgo = timestamp - 31536000000;
+        await kv.zremrangebyscore('zorbs:history', 0, yearAgo);
+      }
+    } catch (kvError) {
+      console.log('KV not available:', kvError.message);
+    }
+
     return Response.json({
       floorPrice,
       totalSupply,
-      marketCap: floorPrice * totalSupply,
+      marketCap,
       source: floorData.openSea?.floorPrice ? 'OpenSea' : 'LooksRare',
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(timestamp).toISOString(),
     });
   } catch (error) {
     return Response.json(
