@@ -264,7 +264,7 @@ export default function Home() {
       transition: 'all 0.2s ease',
     },
     mainStats: {
-      padding: '0.75rem 0',
+      padding: '1.25rem 0',
       flexShrink: 0,
     },
     primaryStat: {
@@ -279,15 +279,15 @@ export default function Home() {
       marginBottom: '0.2rem',
     },
     primaryValue: {
-      fontSize: 'clamp(2.25rem, 9vw, 4rem)',
+      fontSize: 'clamp(3.5rem, 15vw, 7rem)',
       fontWeight: '700',
       lineHeight: 1,
       letterSpacing: '-0.02em',
     },
     unit: {
-      fontSize: 'clamp(0.75rem, 2vw, 1rem)',
+      fontSize: 'clamp(1.25rem, 4vw, 2rem)',
       fontWeight: '700',
-      marginLeft: '0.35rem',
+      marginLeft: '0.5rem',
       letterSpacing: '0.05em',
       opacity: 0.6,
     },
@@ -344,8 +344,7 @@ export default function Home() {
       fontWeight: '500',
     },
     chartContainer: {
-      flex: 1,
-      minHeight: 0,
+      height: '50vh',
       padding: '0.6rem',
       background: theme.card,
       borderRadius: '8px',
@@ -366,7 +365,7 @@ export default function Home() {
       minHeight: 0,
     },
     noChart: {
-      flex: 1,
+      height: '50vh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
