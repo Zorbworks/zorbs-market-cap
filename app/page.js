@@ -1,16 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-
-// Currency configuration: order of rotation
-const CURRENCIES = [
-  { id: 'eth', symbol: 'ETH', position: 'after', decimals: 2 },
-  { id: 'btc', symbol: '₿', position: 'before', decimals: 4 },
-  { id: 'usd', symbol: '$', position: 'before', decimals: 0 },
-  { id: 'gbp', symbol: '£', position: 'before', decimals: 0 },
-  { id: 'eur', symbol: '€', position: 'before', decimals: 0 },
-];
 
 export default function Home() {
   const [data, setData] = useState(null);
@@ -21,13 +12,6 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [darkMode, setDarkMode] = useState(true);
-  
-  // Currency rotation state
-  const [rates, setRates] = useState(null);
-  const [currencyIndex, setCurrencyIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isFading, setIsFading] = useState(false);
-  const rotationInterval = useRef(null);
 
   const theme = darkMode ? {
     bg: '#0a0a0a',
@@ -103,85 +87,21 @@ export default function Home() {
     }
   };
 
-  const fetchRates = async () => {
-    try {
-      const response = await fetch(`/api/rates?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setRates(result);
-      }
-    } catch (err) {
-      console.error('Failed to fetch rates:', err);
-    }
-  };
-
-  // Cycle to next currency with fade effect
-  const cycleToNext = () => {
-    setIsFading(true);
-    setTimeout(() => {
-      setCurrencyIndex((prev) => (prev + 1) % CURRENCIES.length);
-      setIsFading(false);
-    }, 150); // Half of fade duration
-  };
-
-  // Handle click on market cap - pause/resume or cycle
-  const handleMarketCapClick = () => {
-    if (isPaused) {
-      // If paused, cycle to next on click
-      cycleToNext();
-    } else {
-      // If playing, pause
-      setIsPaused(true);
-    }
-  };
-
-  // Double click to resume rotation
-  const handleMarketCapDoubleClick = () => {
-    setIsPaused(false);
-  };
-
   useEffect(() => {
     fetchData();
     fetchHistory();
     fetchZorb();
-    fetchRates();
     
     const dataInterval = setInterval(fetchData, 30000);
     const historyInterval = setInterval(fetchHistory, 60000);
     const zorbInterval = setInterval(fetchZorb, 60000);
-    const ratesInterval = setInterval(fetchRates, 60000); // Update rates every minute
     
     return () => {
       clearInterval(dataInterval);
       clearInterval(historyInterval);
       clearInterval(zorbInterval);
-      clearInterval(ratesInterval);
     };
   }, []);
-
-  // Currency rotation interval
-  useEffect(() => {
-    if (isPaused) {
-      if (rotationInterval.current) {
-        clearInterval(rotationInterval.current);
-        rotationInterval.current = null;
-      }
-      return;
-    }
-
-    rotationInterval.current = setInterval(() => {
-      cycleToNext();
-    }, 5000);
-
-    return () => {
-      if (rotationInterval.current) {
-        clearInterval(rotationInterval.current);
-      }
-    };
-  }, [isPaused]);
 
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '—';
@@ -203,40 +123,6 @@ export default function Home() {
       minute: '2-digit',
       hour12: false 
     });
-  };
-
-  // Format market cap in current currency
-  const getMarketCapDisplay = () => {
-    if (!data?.marketCap) return { value: '—', symbol: 'ETH', position: 'after' };
-    
-    const currency = CURRENCIES[currencyIndex];
-    let value = data.marketCap;
-    
-    // Convert if not ETH
-    if (currency.id !== 'eth' && rates) {
-      const rate = rates[currency.id];
-      if (rate) {
-        value = data.marketCap * rate;
-      }
-    }
-    
-    // Format the number
-    let formatted;
-    if (currency.decimals === 0) {
-      formatted = Math.round(value).toLocaleString('en-US');
-    } else {
-      formatted = value.toLocaleString('en-US', { 
-        minimumFractionDigits: currency.decimals,
-        maximumFractionDigits: currency.decimals 
-      });
-    }
-    
-    return {
-      value: formatted,
-      symbol: currency.symbol,
-      position: currency.position,
-      id: currency.id,
-    };
   };
 
   const getPeriodMs = (period) => {
@@ -411,13 +297,6 @@ export default function Home() {
       fontSize: 'clamp(1.25rem, 4vw, 2rem)',
       fontWeight: '700',
       marginLeft: '0.5rem',
-      letterSpacing: '0.05em',
-      opacity: 0.6,
-    },
-    unitBefore: {
-      fontSize: 'clamp(1.25rem, 4vw, 2rem)',
-      fontWeight: '700',
-      marginRight: '0.25rem',
       letterSpacing: '0.05em',
       opacity: 0.6,
     },
@@ -598,35 +477,12 @@ export default function Home() {
 
           {/* Main stats */}
           <div style={styles.mainStats}>
-            <div 
-              style={styles.primaryStat}
-              onClick={handleMarketCapClick}
-              onDoubleClick={handleMarketCapDoubleClick}
-            >
-              <span style={styles.statLabel}>
-                MARKET CAP {isPaused && <span style={{ opacity: 0.5 }}>⏸</span>}
+            <div style={styles.primaryStat}>
+              <span style={styles.statLabel}>MARKET CAP</span>
+              <span style={styles.primaryValue}>
+                {formatNumber(data.marketCap)}
+                <span style={styles.unit}>ETH</span>
               </span>
-              {(() => {
-                const display = getMarketCapDisplay();
-                return (
-                  <span 
-                    style={{
-                      ...styles.primaryValue,
-                      opacity: isFading ? 0 : 1,
-                      transition: 'opacity 0.3s ease',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {display.position === 'before' && (
-                      <span style={styles.unitBefore}>{display.symbol}</span>
-                    )}
-                    {display.value}
-                    {display.position === 'after' && (
-                      <span style={styles.unit}>{display.symbol}</span>
-                    )}
-                  </span>
-                );
-              })()}
             </div>
           </div>
 
