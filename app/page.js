@@ -6,11 +6,11 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 export default function Home() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
-  const [changes, setChanges] = useState({ hour: null, day: null, week: null, month: null, quarter: null });
+  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null });
   const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [selectedPeriod, setSelectedPeriod] = useState('days7');
   const [darkMode, setDarkMode] = useState(true);
 
   const theme = darkMode ? {
@@ -65,7 +65,7 @@ export default function Home() {
       const result = await response.json();
       if (response.ok) {
         setHistory(result.history || []);
-        setChanges(result.changes || { hour: null, day: null, week: null, month: null, quarter: null });
+        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null });
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
@@ -127,23 +127,21 @@ export default function Home() {
 
   const getPeriodMs = (period) => {
     switch (period) {
-      case 'hour': return 3600000;
-      case 'day': return 86400000;
-      case 'week': return 604800000;
-      case 'month': return 2592000000;
-      case 'quarter': return 6652800000; // 77 days in ms
-      default: return 2592000000;
+      case 'hours7': return 7 * 3600000;        // 7 hours
+      case 'days7': return 7 * 86400000;        // 7 days
+      case 'weeks7': return 49 * 86400000;      // 7 weeks (49 days)
+      case 'days77': return 77 * 86400000;      // 77 days
+      default: return 7 * 86400000;
     }
   };
 
   const getPeriodLabel = (period) => {
     switch (period) {
-      case 'hour': return '1H';
-      case 'day': return '24H';
-      case 'week': return '7D';
-      case 'month': return '30D';
-      case 'quarter': return '77D';
-      default: return '30D';
+      case 'hours7': return '7H';
+      case 'days7': return '7D';
+      case 'weeks7': return '7W';
+      case 'days77': return '77D';
+      default: return '7D';
     }
   };
 
@@ -159,9 +157,10 @@ export default function Home() {
       return ts >= cutoff && ts <= now;
     });
     
-    if (selectedPeriod === 'year' && filtered.length > 365) {
+    // Sample data for longer periods
+    if (selectedPeriod === 'days77' && filtered.length > 150) {
       const sampled = [];
-      const step = Math.floor(filtered.length / 365);
+      const step = Math.floor(filtered.length / 150);
       for (let i = 0; i < filtered.length; i += step) {
         sampled.push(filtered[i]);
       }
@@ -169,9 +168,9 @@ export default function Home() {
       return sampled;
     }
     
-    if (selectedPeriod === 'month' && filtered.length > 120) {
+    if (selectedPeriod === 'weeks7' && filtered.length > 100) {
       const sampled = [];
-      const step = Math.floor(filtered.length / 120);
+      const step = Math.floor(filtered.length / 100);
       for (let i = 0; i < filtered.length; i += step) {
         sampled.push(filtered[i]);
       }
@@ -242,7 +241,7 @@ export default function Home() {
     logo: {
       fontSize: '0.875rem',
       fontWeight: '400',
-      letterSpacing: '0.2em',
+      letterSpacing: '0.15em',
     },
     headerRight: {
       display: 'flex',
@@ -273,19 +272,11 @@ export default function Home() {
       transition: 'all 0.2s ease',
     },
     mainStats: {
-      padding: '1.25rem 0',
+      padding: '1.5rem 0',
       flexShrink: 0,
     },
     primaryStat: {
       textAlign: 'center',
-    },
-    statLabel: {
-      display: 'block',
-      fontSize: '0.6rem',
-      fontWeight: '400',
-      letterSpacing: '0.15em',
-      color: theme.textMuted,
-      marginBottom: '0.2rem',
     },
     primaryValue: {
       fontSize: 'clamp(3.5rem, 15vw, 7rem)',
@@ -311,6 +302,14 @@ export default function Home() {
     stat: {
       textAlign: 'center',
     },
+    statLabel: {
+      display: 'block',
+      fontSize: '0.6rem',
+      fontWeight: '400',
+      letterSpacing: '0.15em',
+      color: theme.textMuted,
+      marginBottom: '0.2rem',
+    },
     statValue: {
       fontSize: '1rem',
       fontWeight: '400',
@@ -319,17 +318,17 @@ export default function Home() {
     changesRow: {
       display: 'flex',
       justifyContent: 'center',
-      gap: '0.4rem',
+      gap: '0.5rem',
       padding: '0.75rem 0',
       flexWrap: 'wrap',
       flexShrink: 0,
     },
     changeBox: {
       textAlign: 'center',
-      padding: '0.4rem 0.6rem',
+      padding: '0.4rem 0.75rem',
       background: theme.card,
       borderRadius: '6px',
-      minWidth: '50px',
+      minWidth: '55px',
       border: `1px solid transparent`,
       cursor: 'pointer',
       transition: 'all 0.2s ease',
@@ -349,7 +348,7 @@ export default function Home() {
       marginBottom: '0.1rem',
     },
     changeValue: {
-      fontSize: '0.8rem',
+      fontSize: '0.85rem',
       fontWeight: '500',
     },
     chartContainer: {
@@ -456,7 +455,7 @@ export default function Home() {
         <div style={styles.dashboard}>
           {/* Header */}
           <header style={styles.header}>
-            <span style={styles.logo}>ZORBS</span>
+            <span style={styles.logo}>ZORBS MARKET CAP</span>
             <div style={styles.headerRight}>
               <button 
                 onClick={() => setDarkMode(!darkMode)} 
@@ -475,10 +474,9 @@ export default function Home() {
             </div>
           </header>
 
-          {/* Main stats */}
+          {/* Main stats - just the number */}
           <div style={styles.mainStats}>
             <div style={styles.primaryStat}>
-              <span style={styles.statLabel}>MARKET CAP</span>
               <span style={styles.primaryValue}>
                 {formatNumber(data.marketCap)}
                 <span style={styles.unit}>ETH</span>
@@ -500,7 +498,7 @@ export default function Home() {
 
           {/* Change indicators */}
           <div style={styles.changesRow}>
-            {['hour', 'day', 'week', 'month', 'quarter'].map(period => (
+            {['hours7', 'days7', 'weeks7', 'days77'].map(period => (
               <button 
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
@@ -537,7 +535,7 @@ export default function Home() {
                     <XAxis 
                       dataKey="time" 
                       tickFormatter={(t) => {
-                        if (selectedPeriod === 'hour' || selectedPeriod === 'day') {
+                        if (selectedPeriod === 'hours7') {
                           return new Date(t).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
                         }
                         return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });

@@ -9,17 +9,16 @@ export async function GET() {
     if (!process.env.KV_REST_API_URL) {
       return NextResponse.json({
         history: [],
-        changes: { hour: null, day: null, week: null, month: null, quarter: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null },
         message: 'KV not configured - historical data unavailable'
       });
     }
 
     const now = Date.now();
-    const hourAgo = now - 3600000;
-    const dayAgo = now - 86400000;
-    const weekAgo = now - 604800000;
-    const monthAgo = now - 2592000000;
-    const quarterAgo = now - 6652800000; // 77 days in ms
+    const hours7Ago = now - 25200000;       // 7 hours
+    const days7Ago = now - 604800000;       // 7 days
+    const weeks7Ago = now - 4233600000;     // 7 weeks (49 days)
+    const days77Ago = now - 6652800000;     // 77 days
 
     // Fetch all history from past year
     const history = await kv.zrange('zorbs:history', 0, -1, { withScores: false });
@@ -27,7 +26,7 @@ export async function GET() {
     if (!history || history.length === 0) {
       return NextResponse.json({
         history: [],
-        changes: { hour: null, day: null, week: null, month: null, quarter: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null },
         message: 'No historical data yet - collecting...'
       });
     }
@@ -47,7 +46,7 @@ export async function GET() {
     if (parsed.length === 0) {
       return NextResponse.json({
         history: [],
-        changes: { hour: null, day: null, week: null, month: null, quarter: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null },
         message: 'No valid historical data'
       });
     }
@@ -93,11 +92,10 @@ export async function GET() {
     };
 
     // Use appropriate tolerances based on backfill granularity (6 hours between points)
-    const hourData = findClosest(hourAgo, 3600000 * 2);      // 2 hour tolerance
-    const dayData = findClosest(dayAgo, 3600000 * 12);       // 12 hour tolerance  
-    const weekData = findClosest(weekAgo, 3600000 * 24);     // 24 hour tolerance
-    const monthData = findClosest(monthAgo, 3600000 * 48);   // 48 hour tolerance
-    const quarterData = findClosest(quarterAgo, 3600000 * 72); // 72 hour tolerance
+    const hours7Data = findClosest(hours7Ago, 3600000 * 4);    // 4 hour tolerance
+    const days7Data = findClosest(days7Ago, 3600000 * 24);     // 24 hour tolerance  
+    const weeks7Data = findClosest(weeks7Ago, 3600000 * 48);   // 48 hour tolerance
+    const days77Data = findClosest(days77Ago, 3600000 * 72);   // 72 hour tolerance
 
     const calcChange = (old, current) => {
       if (!old || !current || old.floorPrice === 0) return null;
@@ -107,11 +105,10 @@ export async function GET() {
     return NextResponse.json({
       history: filtered,
       changes: {
-        hour: calcChange(hourData, current),
-        day: calcChange(dayData, current),
-        week: calcChange(weekData, current),
-        month: calcChange(monthData, current),
-        quarter: calcChange(quarterData, current),
+        hours7: calcChange(hours7Data, current),
+        days7: calcChange(days7Data, current),
+        weeks7: calcChange(weeks7Data, current),
+        days77: calcChange(days77Data, current),
       },
       current,
       dataPoints: filtered.length,
@@ -130,7 +127,7 @@ export async function GET() {
   } catch (error) {
     console.error('History error:', error);
     return NextResponse.json(
-      { error: error.message, history: [], changes: { hour: null, day: null, week: null, month: null, quarter: null } },
+      { error: error.message, history: [], changes: { hours7: null, days7: null, weeks7: null, days77: null } },
       { status: 500 }
     );
   }
