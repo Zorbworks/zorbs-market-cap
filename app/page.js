@@ -182,14 +182,28 @@ export default function Home() {
 
   return (
     <main style={styles.container}>
-      {/* Zorb background - actual SVG from Zora */}
+      {/* Zorb background - Alchemy cached image with gradient fallback */}
       {zorb?.imageUrl ? (
         <div style={styles.zorbContainer}>
           <img 
             src={zorb.imageUrl} 
             alt={zorb.name}
             style={styles.zorbImage}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.parentElement.style.display = 'none';
+            }}
           />
+        </div>
+      ) : zorb?.gradientColors ? (
+        <div style={styles.zorbContainer}>
+          <div style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            background: `radial-gradient(circle at 30% 30%, ${zorb.gradientColors.c1}, ${zorb.gradientColors.c2} 25%, ${zorb.gradientColors.c3} 50%, ${zorb.gradientColors.c4} 75%, ${zorb.gradientColors.c5})`,
+            opacity: 0.95,
+          }} />
         </div>
       ) : null}
       

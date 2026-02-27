@@ -73,25 +73,33 @@ export async function GET() {
       buyerDisplay = `${buyer.slice(0, 6)}...${buyer.slice(-4)}`;
     }
 
-    // Fetch the actual Zorb SVG from Zora's API (server-side to avoid CORS)
-    let zorbSvgDataUri = null;
+    // Get image from Alchemy's cached NFT metadata
+    let imageUrl = null;
+    
+    const nftResponse = await fetch(
+      `https://eth-mainnet.g.alchemy.com/nft/v3/${apiKey}/getNFTMetadata?contractAddress=${ZORBS_CONTRACT}&tokenId=${tokenId}&refreshCache=false`
+    );
+
+    if (nftResponse.ok) {
+      const nftData = await nftResponse.json();
+      // Prefer Alchemy's cached URL
+      imageUrl = 
+        nftData.image?.cachedUrl || 
+        nftData.image?.pngUrl ||
+        nftData.image?.originalUrl ||
+        null;
+    }
+
+    // Generate Zorb gradient colors from buyer address for CSS fallback
+    let gradientColors = null;
     if (buyer) {
-      try {
-        const zorbResponse = await fetch(`https://zora.co/api/zorb?address=${buyer}`);
-        if (zorbResponse.ok) {
-          const svgText = await zorbResponse.text();
-          // Convert to data URI
-          const base64 = Buffer.from(svgText).toString('base64');
-          zorbSvgDataUri = `data:image/svg+xml;base64,${base64}`;
-        }
-      } catch (e) {
-        console.log('Zorb fetch failed:', e.message);
-      }
+      gradientColors = generateZorbColors(buyer);
     }
 
     return Response.json({
       tokenId,
-      imageUrl: zorbSvgDataUri,
+      imageUrl,
+      gradientColors,
       name: `Zorb #${tokenId}`,
       buyer,
       buyerDisplay,
@@ -104,4 +112,24 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+// Generate Zorb gradient colors from wallet address
+function generateZorbColors(address) {
+  const addr = address.toLowerCase();
+  
+  // Use parts of the address to generate hues
+  const h1 = parseInt(addr.slice(2, 10), 16) % 360;
+  const h2 = (h1 + 40) % 360;
+  const h3 = (h1 + 80) % 360;
+  const h4 = (h1 + 120) % 360;
+  const h5 = (h1 + 160) % 360;
+  
+  return {
+    c1: `hsl(${h1}, 70%, 60%)`,
+    c2: `hsl(${h2}, 70%, 55%)`,
+    c3: `hsl(${h3}, 70%, 50%)`,
+    c4: `hsl(${h4}, 70%, 55%)`,
+    c5: `hsl(${h5}, 70%, 60%)`,
+  };
 }
