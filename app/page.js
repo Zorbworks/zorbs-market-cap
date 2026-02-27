@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 export default function Home() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
-  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null, all: null });
+  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null, days777: null });
   const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,7 +65,7 @@ export default function Home() {
       const result = await response.json();
       if (response.ok) {
         setHistory(result.history || []);
-        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null, all: null });
+        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null, days777: null });
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
@@ -131,7 +131,7 @@ export default function Home() {
       case 'days7': return 7 * 86400000;        // 7 days
       case 'weeks7': return 49 * 86400000;      // 7 weeks (49 days)
       case 'days77': return 77 * 86400000;      // 77 days
-      case 'all': return 365 * 86400000;        // 1 year (effectively all data)
+      case 'days777': return 777 * 86400000;    // 777 days
       default: return 7 * 86400000;
     }
   };
@@ -142,28 +142,13 @@ export default function Home() {
       case 'days7': return '7D';
       case 'weeks7': return '7W';
       case 'days77': return '77D';
-      case 'all': return 'ALL';
+      case 'days777': return '777D';
       default: return '7D';
     }
   };
 
   const filterHistoryByPeriod = () => {
     if (!history || history.length === 0) return [];
-    
-    // For 'all', return entire history
-    if (selectedPeriod === 'all') {
-      // Sample if too many points
-      if (history.length > 200) {
-        const sampled = [];
-        const step = Math.floor(history.length / 200);
-        for (let i = 0; i < history.length; i += step) {
-          sampled.push(history[i]);
-        }
-        sampled.push(history[history.length - 1]);
-        return sampled;
-      }
-      return history;
-    }
     
     const now = Date.now();
     const periodMs = getPeriodMs(selectedPeriod);
@@ -175,6 +160,16 @@ export default function Home() {
     });
     
     // Sample data for longer periods
+    if (selectedPeriod === 'days777' && filtered.length > 200) {
+      const sampled = [];
+      const step = Math.floor(filtered.length / 200);
+      for (let i = 0; i < filtered.length; i += step) {
+        sampled.push(filtered[i]);
+      }
+      sampled.push(filtered[filtered.length - 1]);
+      return sampled;
+    }
+    
     if (selectedPeriod === 'days77' && filtered.length > 150) {
       const sampled = [];
       const step = Math.floor(filtered.length / 150);
@@ -515,7 +510,7 @@ export default function Home() {
 
           {/* Change indicators */}
           <div style={styles.changesRow}>
-            {['hours7', 'days7', 'weeks7', 'days77', 'all'].map(period => (
+            {['hours7', 'days7', 'weeks7', 'days77', 'days777'].map(period => (
               <button 
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
