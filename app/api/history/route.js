@@ -60,12 +60,12 @@ export async function GET() {
       const mid = Math.floor(prices.length / 2);
       const median = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
       
-      // Also calculate the 90th percentile for threshold
-      const p90Index = Math.floor(prices.length * 0.90);
-      const p90 = prices[p90Index];
+      // Calculate 75th percentile
+      const p75Index = Math.floor(prices.length * 0.75);
+      const p75 = prices[p75Index];
       
-      // Use 3x median or 1.5x 90th percentile - whichever is lower (more aggressive)
-      const threshold = Math.min(median * 3, p90 * 1.5);
+      // Very aggressive: 2x median or 1.2x 75th percentile - whichever is lower
+      const threshold = Math.min(median * 2, p75 * 1.2);
       
       // Filter out points above threshold
       return data.filter(point => point.floorPrice <= threshold);
