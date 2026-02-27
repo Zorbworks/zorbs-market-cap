@@ -1,9 +1,13 @@
 import { kv } from '@vercel/kv';
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
     if (!process.env.KV_REST_API_URL) {
-      return Response.json({
+      return NextResponse.json({
         history: [],
         changes: { hour: null, day: null, week: null, month: null, quarter: null },
         message: 'KV not configured - historical data unavailable'
@@ -21,7 +25,7 @@ export async function GET() {
     const history = await kv.zrange('zorbs:history', 0, -1, { withScores: false });
 
     if (!history || history.length === 0) {
-      return Response.json({
+      return NextResponse.json({
         history: [],
         changes: { hour: null, day: null, week: null, month: null, quarter: null },
         message: 'No historical data yet - collecting...'
@@ -41,7 +45,7 @@ export async function GET() {
     }).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
 
     if (parsed.length === 0) {
-      return Response.json({
+      return NextResponse.json({
         history: [],
         changes: { hour: null, day: null, week: null, month: null, quarter: null },
         message: 'No valid historical data'
@@ -100,7 +104,7 @@ export async function GET() {
       return ((current.floorPrice - old.floorPrice) / old.floorPrice) * 100;
     };
 
-    return Response.json({
+    return NextResponse.json({
       history: filtered,
       changes: {
         hour: calcChange(hourData, current),
@@ -118,10 +122,14 @@ export async function GET() {
         filteredPoints: filtered.length,
         removedOutliers: parsed.length - filtered.length,
       }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      }
     });
   } catch (error) {
     console.error('History error:', error);
-    return Response.json(
+    return NextResponse.json(
       { error: error.message, history: [], changes: { hour: null, day: null, week: null, month: null, quarter: null } },
       { status: 500 }
     );

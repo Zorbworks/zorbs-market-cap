@@ -4,5 +4,16 @@
       "path": "/api/floor",
       "schedule": "*/15 * * * *"
     }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        }
+      ]
+    }
   ]
 }

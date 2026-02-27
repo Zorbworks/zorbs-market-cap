@@ -41,7 +41,10 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/floor');
+      const response = await fetch(`/api/floor?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to fetch');
       setData(result);
@@ -55,7 +58,10 @@ export default function Home() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch('/api/history');
+      const response = await fetch(`/api/history?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const result = await response.json();
       if (response.ok) {
         setHistory(result.history || []);
@@ -68,7 +74,10 @@ export default function Home() {
 
   const fetchZorb = async () => {
     try {
-      const response = await fetch('/api/zorb');
+      const response = await fetch(`/api/zorb?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const result = await response.json();
       if (response.ok) {
         setZorb(result);
