@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 export default function Home() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
-  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null, days777: null });
+  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null });
   const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,7 +65,7 @@ export default function Home() {
       const result = await response.json();
       if (response.ok) {
         setHistory(result.history || []);
-        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null, days777: null });
+        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null });
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
@@ -131,7 +131,6 @@ export default function Home() {
       case 'days7': return 7 * 86400000;        // 7 days
       case 'weeks7': return 49 * 86400000;      // 7 weeks (49 days)
       case 'days77': return 77 * 86400000;      // 77 days
-      case 'days777': return 777 * 86400000;    // 777 days
       default: return 7 * 86400000;
     }
   };
@@ -142,7 +141,6 @@ export default function Home() {
       case 'days7': return '7D';
       case 'weeks7': return '7W';
       case 'days77': return '77D';
-      case 'days777': return '777D';
       default: return '7D';
     }
   };
@@ -154,43 +152,39 @@ export default function Home() {
     const periodMs = getPeriodMs(selectedPeriod);
     const cutoff = now - periodMs;
     
+    // Filter to period
     const filtered = history.filter(point => {
       const ts = point.timestamp;
       return ts >= cutoff && ts <= now;
     });
     
-    // Sample data for longer periods
-    if (selectedPeriod === 'days777' && filtered.length > 200) {
-      const sampled = [];
-      const step = Math.floor(filtered.length / 200);
-      for (let i = 0; i < filtered.length; i += step) {
-        sampled.push(filtered[i]);
-      }
-      sampled.push(filtered[filtered.length - 1]);
-      return sampled;
+    if (filtered.length === 0) return [];
+    if (filtered.length <= 2) return filtered;
+    
+    // Deduplicate by time bucket based on period
+    // For 7H: keep all points (15 min intervals are fine)
+    // For 7D: keep one point per hour
+    // For 7W: keep one point per 6 hours
+    // For 77D: keep one point per day
+    
+    const bucketSize = selectedPeriod === 'hours7' ? 900000 :      // 15 min
+                       selectedPeriod === 'days7' ? 3600000 :       // 1 hour
+                       selectedPeriod === 'weeks7' ? 21600000 :     // 6 hours
+                       86400000;                                     // 1 day
+    
+    const buckets = new Map();
+    
+    for (const point of filtered) {
+      const bucket = Math.floor(point.timestamp / bucketSize);
+      // Keep the last point in each bucket (most recent)
+      buckets.set(bucket, point);
     }
     
-    if (selectedPeriod === 'days77' && filtered.length > 150) {
-      const sampled = [];
-      const step = Math.floor(filtered.length / 150);
-      for (let i = 0; i < filtered.length; i += step) {
-        sampled.push(filtered[i]);
-      }
-      sampled.push(filtered[filtered.length - 1]);
-      return sampled;
-    }
+    // Convert back to sorted array
+    const deduplicated = Array.from(buckets.values())
+      .sort((a, b) => a.timestamp - b.timestamp);
     
-    if (selectedPeriod === 'weeks7' && filtered.length > 100) {
-      const sampled = [];
-      const step = Math.floor(filtered.length / 100);
-      for (let i = 0; i < filtered.length; i += step) {
-        sampled.push(filtered[i]);
-      }
-      sampled.push(filtered[filtered.length - 1]);
-      return sampled;
-    }
-    
-    return filtered;
+    return deduplicated;
   };
 
   const chartData = filterHistoryByPeriod().map(point => ({
@@ -510,7 +504,7 @@ export default function Home() {
 
           {/* Change indicators */}
           <div style={styles.changesRow}>
-            {['hours7', 'days7', 'weeks7', 'days77', 'days777'].map(period => (
+            {['hours7', 'days7', 'weeks7', 'days77'].map(period => (
               <button 
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
@@ -545,7 +539,9 @@ export default function Home() {
                       </linearGradient>
                     </defs>
                     <XAxis 
-                      dataKey="time" 
+                      dataKey="time"
+                      type="number"
+                      domain={['dataMin', 'dataMax']}
                       tickFormatter={(t) => {
                         if (selectedPeriod === 'hours7') {
                           return new Date(t).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -556,7 +552,7 @@ export default function Home() {
                       tick={{ fill: theme.textMuted, fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
-                      minTickGap={40}
+                      minTickGap={50}
                     />
                     <YAxis 
                       tickFormatter={formatYAxis}

@@ -9,7 +9,7 @@ export async function GET() {
     if (!process.env.KV_REST_API_URL) {
       return NextResponse.json({
         history: [],
-        changes: { hours7: null, days7: null, weeks7: null, days77: null, days777: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null },
         message: 'KV not configured - historical data unavailable'
       });
     }
@@ -19,7 +19,6 @@ export async function GET() {
     const days7Ago = now - 604800000;       // 7 days
     const weeks7Ago = now - 4233600000;     // 7 weeks (49 days)
     const days77Ago = now - 6652800000;     // 77 days
-    const days777Ago = now - 67132800000;   // 777 days
 
     // Fetch all history from past year
     const history = await kv.zrange('zorbs:history', 0, -1, { withScores: false });
@@ -27,7 +26,7 @@ export async function GET() {
     if (!history || history.length === 0) {
       return NextResponse.json({
         history: [],
-        changes: { hours7: null, days7: null, weeks7: null, days77: null, days777: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null },
         message: 'No historical data yet - collecting...'
       });
     }
@@ -47,7 +46,7 @@ export async function GET() {
     if (parsed.length === 0) {
       return NextResponse.json({
         history: [],
-        changes: { hours7: null, days7: null, weeks7: null, days77: null, days777: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null },
         message: 'No valid historical data'
       });
     }
@@ -97,7 +96,6 @@ export async function GET() {
     const days7Data = findClosest(days7Ago, 3600000 * 24);     // 24 hour tolerance  
     const weeks7Data = findClosest(weeks7Ago, 3600000 * 48);   // 48 hour tolerance
     const days77Data = findClosest(days77Ago, 3600000 * 72);   // 72 hour tolerance
-    const days777Data = findClosest(days777Ago, 3600000 * 168); // 1 week tolerance
 
     const calcChange = (old, current) => {
       if (!old || !current || old.floorPrice === 0) return null;
@@ -111,7 +109,6 @@ export async function GET() {
         days7: calcChange(days7Data, current),
         weeks7: calcChange(weeks7Data, current),
         days77: calcChange(days77Data, current),
-        days777: calcChange(days777Data, current),
       },
       current,
       dataPoints: filtered.length,
@@ -130,7 +127,7 @@ export async function GET() {
   } catch (error) {
     console.error('History error:', error);
     return NextResponse.json(
-      { error: error.message, history: [], changes: { hours7: null, days7: null, weeks7: null, days77: null, days777: null } },
+      { error: error.message, history: [], changes: { hours7: null, days7: null, weeks7: null, days77: null } },
       { status: 500 }
     );
   }
