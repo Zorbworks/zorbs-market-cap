@@ -139,10 +139,40 @@ export default function Home() {
   };
 
   const filterHistoryByPeriod = () => {
+    if (!history || history.length === 0) return [];
+    
     const now = Date.now();
     const periodMs = getPeriodMs(selectedPeriod);
     const cutoff = now - periodMs;
-    return history.filter(point => point.timestamp >= cutoff);
+    
+    const filtered = history.filter(point => {
+      const ts = point.timestamp;
+      return ts >= cutoff && ts <= now;
+    });
+    
+    // For longer periods, sample the data to avoid too many points
+    if (selectedPeriod === 'year' && filtered.length > 365) {
+      // Sample roughly one point per day
+      const sampled = [];
+      const step = Math.floor(filtered.length / 365);
+      for (let i = 0; i < filtered.length; i += step) {
+        sampled.push(filtered[i]);
+      }
+      sampled.push(filtered[filtered.length - 1]); // Always include latest
+      return sampled;
+    }
+    
+    if (selectedPeriod === 'month' && filtered.length > 120) {
+      const sampled = [];
+      const step = Math.floor(filtered.length / 120);
+      for (let i = 0; i < filtered.length; i += step) {
+        sampled.push(filtered[i]);
+      }
+      sampled.push(filtered[filtered.length - 1]);
+      return sampled;
+    }
+    
+    return filtered;
   };
 
   const chartData = filterHistoryByPeriod().map(point => ({
@@ -320,15 +350,26 @@ export default function Home() {
                   />
                   <YAxis 
                     domain={([dataMin, dataMax]) => {
-                      const padding = (dataMax - dataMin) * 0.1 || dataMin * 0.05;
+                      if (dataMin === dataMax) {
+                        // If all values are the same, create some padding
+                        const padding = dataMin * 0.1 || 0.0001;
+                        return [dataMin - padding, dataMax + padding];
+                      }
+                      const padding = (dataMax - dataMin) * 0.1;
                       return [dataMin - padding, dataMax + padding];
                     }}
                     stroke="rgba(255,255,255,0.3)"
                     tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
-                    width={50}
-                    tickFormatter={(v) => v.toFixed(4)}
+                    width={55}
+                    tickFormatter={(v) => {
+                      if (v < 0.001) return v.toExponential(1);
+                      if (v < 0.01) return v.toFixed(5);
+                      if (v < 1) return v.toFixed(4);
+                      return v.toFixed(2);
+                    }}
+                    tickCount={5}
                   />
                   <Tooltip 
                     contentStyle={{ 
