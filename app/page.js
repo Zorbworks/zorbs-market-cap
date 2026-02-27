@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 export default function Home() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
-  const [changes, setChanges] = useState({ hour: null, day: null, week: null, month: null, year: null });
+  const [changes, setChanges] = useState({ hour: null, day: null, week: null, month: null, quarter: null });
   const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +59,7 @@ export default function Home() {
       const result = await response.json();
       if (response.ok) {
         setHistory(result.history || []);
-        setChanges(result.changes || { hour: null, day: null, week: null, month: null, year: null });
+        setChanges(result.changes || { hour: null, day: null, week: null, month: null, quarter: null });
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
@@ -122,7 +122,7 @@ export default function Home() {
       case 'day': return 86400000;
       case 'week': return 604800000;
       case 'month': return 2592000000;
-      case 'year': return 31536000000;
+      case 'quarter': return 6652800000; // 77 days in ms
       default: return 2592000000;
     }
   };
@@ -133,7 +133,7 @@ export default function Home() {
       case 'day': return '24H';
       case 'week': return '7D';
       case 'month': return '30D';
-      case 'year': return '1Y';
+      case 'quarter': return '77D';
       default: return '30D';
     }
   };
@@ -491,7 +491,7 @@ export default function Home() {
 
           {/* Change indicators */}
           <div style={styles.changesRow}>
-            {['hour', 'day', 'week', 'month', 'year'].map(period => (
+            {['hour', 'day', 'week', 'month', 'quarter'].map(period => (
               <button 
                 key={period}
                 onClick={() => setSelectedPeriod(period)}

@@ -5,7 +5,7 @@ export async function GET() {
     if (!process.env.KV_REST_API_URL) {
       return Response.json({
         history: [],
-        changes: { hour: null, day: null, week: null, month: null, year: null },
+        changes: { hour: null, day: null, week: null, month: null, quarter: null },
         message: 'KV not configured - historical data unavailable'
       });
     }
@@ -15,7 +15,7 @@ export async function GET() {
     const dayAgo = now - 86400000;
     const weekAgo = now - 604800000;
     const monthAgo = now - 2592000000;
-    const yearAgo = now - 31536000000;
+    const quarterAgo = now - 6652800000; // 77 days in ms
 
     // Fetch all history from past year
     const history = await kv.zrange('zorbs:history', 0, -1, { withScores: false });
@@ -23,7 +23,7 @@ export async function GET() {
     if (!history || history.length === 0) {
       return Response.json({
         history: [],
-        changes: { hour: null, day: null, week: null, month: null, year: null },
+        changes: { hour: null, day: null, week: null, month: null, quarter: null },
         message: 'No historical data yet - collecting...'
       });
     }
@@ -43,7 +43,7 @@ export async function GET() {
     if (parsed.length === 0) {
       return Response.json({
         history: [],
-        changes: { hour: null, day: null, week: null, month: null, year: null },
+        changes: { hour: null, day: null, week: null, month: null, quarter: null },
         message: 'No valid historical data'
       });
     }
@@ -57,12 +57,12 @@ export async function GET() {
       const mid = Math.floor(prices.length / 2);
       const median = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
       
-      // Also calculate the 75th percentile for a more robust threshold
-      const p75Index = Math.floor(prices.length * 0.75);
-      const p75 = prices[p75Index];
+      // Also calculate the 90th percentile for threshold
+      const p90Index = Math.floor(prices.length * 0.90);
+      const p90 = prices[p90Index];
       
-      // Use the higher of: 4x median or 2x the 75th percentile
-      const threshold = Math.max(median * 4, p75 * 2);
+      // Use 3x median or 1.5x 90th percentile - whichever is lower (more aggressive)
+      const threshold = Math.min(median * 3, p90 * 1.5);
       
       // Filter out points above threshold
       return data.filter(point => point.floorPrice <= threshold);
@@ -93,7 +93,7 @@ export async function GET() {
     const dayData = findClosest(dayAgo, 3600000 * 12);       // 12 hour tolerance  
     const weekData = findClosest(weekAgo, 3600000 * 24);     // 24 hour tolerance
     const monthData = findClosest(monthAgo, 3600000 * 48);   // 48 hour tolerance
-    const yearData = findClosest(yearAgo, 3600000 * 72);     // 72 hour tolerance
+    const quarterData = findClosest(quarterAgo, 3600000 * 72); // 72 hour tolerance
 
     const calcChange = (old, current) => {
       if (!old || !current || old.floorPrice === 0) return null;
@@ -107,7 +107,7 @@ export async function GET() {
         day: calcChange(dayData, current),
         week: calcChange(weekData, current),
         month: calcChange(monthData, current),
-        year: calcChange(yearData, current),
+        quarter: calcChange(quarterData, current),
       },
       current,
       dataPoints: filtered.length,
@@ -122,7 +122,7 @@ export async function GET() {
   } catch (error) {
     console.error('History error:', error);
     return Response.json(
-      { error: error.message, history: [], changes: { hour: null, day: null, week: null, month: null, year: null } },
+      { error: error.message, history: [], changes: { hour: null, day: null, week: null, month: null, quarter: null } },
       { status: 500 }
     );
   }
