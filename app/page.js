@@ -407,6 +407,7 @@ export default function Home() {
             {zorb && (
               <span style={styles.zorbCredit}>
                 {zorb.isRecentTransfer ? 'LAST TRANSFER: ' : ''}{zorb.name}
+                {zorb.buyerDisplay && <span style={styles.buyerAddress}> → {zorb.buyerDisplay}</span>}
               </span>
             )}
           </div>
@@ -655,5 +656,9 @@ const styles = {
     letterSpacing: '0.1em',
     color: 'rgba(255,255,255,0.3)',
     textTransform: 'uppercase',
+  },
+  buyerAddress: {
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'none',
   },
 };
