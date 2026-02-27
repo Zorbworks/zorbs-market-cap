@@ -9,7 +9,7 @@ export async function GET() {
     if (!process.env.KV_REST_API_URL) {
       return NextResponse.json({
         history: [],
-        changes: { hours7: null, days7: null, weeks7: null, days77: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null, all: null },
         message: 'KV not configured - historical data unavailable'
       });
     }
@@ -26,7 +26,7 @@ export async function GET() {
     if (!history || history.length === 0) {
       return NextResponse.json({
         history: [],
-        changes: { hours7: null, days7: null, weeks7: null, days77: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null, all: null },
         message: 'No historical data yet - collecting...'
       });
     }
@@ -46,7 +46,7 @@ export async function GET() {
     if (parsed.length === 0) {
       return NextResponse.json({
         history: [],
-        changes: { hours7: null, days7: null, weeks7: null, days77: null },
+        changes: { hours7: null, days7: null, weeks7: null, days77: null, all: null },
         message: 'No valid historical data'
       });
     }
@@ -96,6 +96,9 @@ export async function GET() {
     const days7Data = findClosest(days7Ago, 3600000 * 24);     // 24 hour tolerance  
     const weeks7Data = findClosest(weeks7Ago, 3600000 * 48);   // 48 hour tolerance
     const days77Data = findClosest(days77Ago, 3600000 * 72);   // 72 hour tolerance
+    
+    // For 'all', use the oldest data point
+    const oldestData = filtered.length > 0 ? filtered[0] : null;
 
     const calcChange = (old, current) => {
       if (!old || !current || old.floorPrice === 0) return null;
@@ -109,6 +112,7 @@ export async function GET() {
         days7: calcChange(days7Data, current),
         weeks7: calcChange(weeks7Data, current),
         days77: calcChange(days77Data, current),
+        all: calcChange(oldestData, current),
       },
       current,
       dataPoints: filtered.length,
@@ -127,7 +131,7 @@ export async function GET() {
   } catch (error) {
     console.error('History error:', error);
     return NextResponse.json(
-      { error: error.message, history: [], changes: { hours7: null, days7: null, weeks7: null, days77: null } },
+      { error: error.message, history: [], changes: { hours7: null, days7: null, weeks7: null, days77: null, all: null } },
       { status: 500 }
     );
   }

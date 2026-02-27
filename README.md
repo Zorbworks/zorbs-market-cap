@@ -48,6 +48,7 @@ KV_REST_API_TOKEN=your_kv_token
 - **7D** — 7 days
 - **7W** — 7 weeks (49 days)
 - **77D** — 77 days
+- **ALL** — All available historical data
 
 ## Deployment
 

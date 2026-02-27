@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 export default function Home() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
-  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null });
+  const [changes, setChanges] = useState({ hours7: null, days7: null, weeks7: null, days77: null, all: null });
   const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,7 +65,7 @@ export default function Home() {
       const result = await response.json();
       if (response.ok) {
         setHistory(result.history || []);
-        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null });
+        setChanges(result.changes || { hours7: null, days7: null, weeks7: null, days77: null, all: null });
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
@@ -131,6 +131,7 @@ export default function Home() {
       case 'days7': return 7 * 86400000;        // 7 days
       case 'weeks7': return 49 * 86400000;      // 7 weeks (49 days)
       case 'days77': return 77 * 86400000;      // 77 days
+      case 'all': return 365 * 86400000;        // 1 year (effectively all data)
       default: return 7 * 86400000;
     }
   };
@@ -141,12 +142,28 @@ export default function Home() {
       case 'days7': return '7D';
       case 'weeks7': return '7W';
       case 'days77': return '77D';
+      case 'all': return 'ALL';
       default: return '7D';
     }
   };
 
   const filterHistoryByPeriod = () => {
     if (!history || history.length === 0) return [];
+    
+    // For 'all', return entire history
+    if (selectedPeriod === 'all') {
+      // Sample if too many points
+      if (history.length > 200) {
+        const sampled = [];
+        const step = Math.floor(history.length / 200);
+        for (let i = 0; i < history.length; i += step) {
+          sampled.push(history[i]);
+        }
+        sampled.push(history[history.length - 1]);
+        return sampled;
+      }
+      return history;
+    }
     
     const now = Date.now();
     const periodMs = getPeriodMs(selectedPeriod);
@@ -325,10 +342,10 @@ export default function Home() {
     },
     changeBox: {
       textAlign: 'center',
-      padding: '0.4rem 0.75rem',
+      padding: '0.4rem 0.6rem',
       background: theme.card,
       borderRadius: '6px',
-      minWidth: '55px',
+      minWidth: '50px',
       border: `1px solid transparent`,
       cursor: 'pointer',
       transition: 'all 0.2s ease',
@@ -498,7 +515,7 @@ export default function Home() {
 
           {/* Change indicators */}
           <div style={styles.changesRow}>
-            {['hours7', 'days7', 'weeks7', 'days77'].map(period => (
+            {['hours7', 'days7', 'weeks7', 'days77', 'all'].map(period => (
               <button 
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
