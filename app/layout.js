@@ -1,15 +1,9 @@
-import { Share_Tech_Mono, DotGothic16 } from 'next/font/google'
+import { JetBrains_Mono } from 'next/font/google'
 
-const mono = Share_Tech_Mono({ 
+const mono = JetBrains_Mono({ 
   subsets: ['latin'],
-  weight: ['400'],
+  weight: ['400', '700'],
   variable: '--font-mono',
-})
-
-const dotGothic = DotGothic16({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-display',
 })
 
 export const metadata = {
@@ -20,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${mono.variable} ${dotGothic.variable}`} style={{ margin: 0 }}>
+      <body className={mono.variable} style={{ margin: 0 }}>
         {children}
       </body>
     </html>

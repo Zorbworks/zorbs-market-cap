@@ -10,40 +10,12 @@ export async function GET() {
   }
 
   try {
-    // Fetch recent transfers for Zorbs contract
-    const transfersResponse = await fetch(
-      `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'alchemy_getAssetTransfers',
-          params: [{
-            fromBlock: 'latest',
-            toBlock: 'latest',
-            contractAddresses: [ZORBS_CONTRACT],
-            category: ['erc721'],
-            order: 'desc',
-            maxCount: '0x1',
-            withMetadata: true,
-          }]
-        })
-      }
-    );
+    // Try to get recent transfers first
+    let tokenId = null;
+    let transferInfo = null;
 
-    if (!transfersResponse.ok) {
-      throw new Error('Failed to fetch transfers');
-    }
-
-    const transfersData = await transfersResponse.json();
-    
-    // If no recent transfers in latest block, get from last 1000 blocks
-    let transfer = transfersData.result?.transfers?.[0];
-    
-    if (!transfer) {
-      const recentResponse = await fetch(
+    try {
+      const transfersResponse = await fetch(
         `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`,
         {
           method: 'POST',
@@ -53,7 +25,6 @@ export async function GET() {
             id: 1,
             method: 'alchemy_getAssetTransfers',
             params: [{
-              fromBlock: 'latest',
               contractAddresses: [ZORBS_CONTRACT],
               category: ['erc721'],
               order: 'desc',
@@ -63,20 +34,40 @@ export async function GET() {
           })
         }
       );
+
+      const transfersData = await transfersResponse.json();
+      const transfer = transfersData.result?.transfers?.[0];
       
-      const recentData = await recentResponse.json();
-      transfer = recentData.result?.transfers?.[0];
+      if (transfer?.tokenId) {
+        tokenId = parseInt(transfer.tokenId, 16).toString();
+        transferInfo = {
+          from: transfer.from,
+          to: transfer.to,
+          timestamp: transfer.metadata?.blockTimestamp || null,
+        };
+      }
+    } catch (e) {
+      console.log('Transfer fetch failed, falling back to random');
     }
 
-    if (!transfer) {
-      throw new Error('No recent transfers found');
-    }
-
-    // Extract token ID from the transfer
-    const tokenId = transfer.tokenId ? parseInt(transfer.tokenId, 16).toString() : null;
-    
+    // Fallback: get a random Zorb if no recent transfer found
     if (!tokenId) {
-      throw new Error('Could not get token ID from transfer');
+      const randomStart = Math.floor(Math.random() * 50000);
+      const nftsResponse = await fetch(
+        `https://eth-mainnet.g.alchemy.com/nft/v3/${apiKey}/getNFTsForContract?contractAddress=${ZORBS_CONTRACT}&withMetadata=true&startToken=${randomStart}&limit=1`
+      );
+      
+      if (nftsResponse.ok) {
+        const nftsData = await nftsResponse.json();
+        if (nftsData.nfts?.[0]) {
+          tokenId = nftsData.nfts[0].tokenId;
+        }
+      }
+    }
+
+    if (!tokenId) {
+      // Final fallback: just use a known token ID
+      tokenId = '1';
     }
 
     // Fetch the NFT metadata
@@ -100,9 +91,12 @@ export async function GET() {
       tokenId,
       imageUrl,
       name: nftData.name || `Zorb #${tokenId}`,
-      from: transfer.from,
-      to: transfer.to,
-      timestamp: transfer.metadata?.blockTimestamp || null,
+      ...(transferInfo && { 
+        from: transferInfo.from,
+        to: transferInfo.to,
+        timestamp: transferInfo.timestamp,
+        isRecentTransfer: true,
+      }),
     });
   } catch (error) {
     return Response.json(

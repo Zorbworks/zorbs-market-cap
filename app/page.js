@@ -287,7 +287,9 @@ export default function Home() {
           <div style={styles.footerInfo}>
             <span style={styles.updated}>UPDATED {formatTime(data.timestamp)}</span>
             {zorb && (
-              <span style={styles.zorbCredit}>LAST TRANSFER: {zorb.name}</span>
+              <span style={styles.zorbCredit}>
+                {zorb.isRecentTransfer ? 'LAST TRANSFER: ' : ''}{zorb.name}
+              </span>
             )}
           </div>
         </div>
@@ -304,7 +306,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: 'var(--font-mono), "Share Tech Mono", monospace',
+    fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
     color: '#fff',
     padding: '2rem',
     position: 'relative',
@@ -362,7 +364,7 @@ const styles = {
     marginBottom: '2rem',
   },
   retryButton: {
-    fontFamily: 'var(--font-mono), "Share Tech Mono", monospace',
+    fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
     fontSize: '0.75rem',
     fontWeight: '400',
     letterSpacing: '0.15em',
@@ -428,16 +430,16 @@ const styles = {
   },
   primaryValue: {
     fontSize: 'clamp(3rem, 12vw, 6rem)',
-    fontFamily: 'var(--font-display), "DotGothic16", monospace',
-    fontWeight: '400',
+    fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
+    fontWeight: '700',
     lineHeight: 1,
     letterSpacing: '-0.02em',
     textShadow: '0 4px 30px rgba(0,0,0,0.5)',
   },
   unit: {
     fontSize: 'clamp(1rem, 3vw, 1.5rem)',
-    fontFamily: 'var(--font-display), "DotGothic16", monospace',
-    fontWeight: '400',
+    fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
+    fontWeight: '700',
     marginLeft: '0.5rem',
     letterSpacing: '0.05em',
     opacity: 0.7,
