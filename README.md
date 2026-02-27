@@ -72,9 +72,51 @@ After adding KV, redeploy for changes to take effect:
 
 - `/api/floor` — Fetches current data, logs to KV
 - `/api/history` — Returns historical data and calculates % changes
-- `/api/zorb` — Returns random Zorb image
+- `/api/zorb` — Returns most recently transferred Zorb (or random fallback)
+- `/api/backfill` — One-time import of historical data from Dune
 - Cron job runs every 15 minutes to log prices (configured in `vercel.json`)
-- Historical data builds over time (1h for 1H change, 24h for 24H, 7d for 7D)
+
+---
+
+## Backfill Historical Data (Optional)
+
+To populate historical floor price data instead of waiting:
+
+### Step 1: Create a Dune Query
+
+1. Go to [dune.com](https://dune.com) and sign in
+2. Click **New Query**
+3. Paste this SQL:
+
+```sql
+SELECT
+  date_trunc('day', block_time) as day,
+  MIN(amount_raw / 1e18) as floor_price
+FROM nft.trades
+WHERE nft_contract_address = 0xca21d4228cdcc68d4e23807e5e370c07577dd152
+  AND amount_raw > 0
+  AND block_time >= NOW() - INTERVAL '365' DAY
+GROUP BY 1
+ORDER BY 1 ASC
+```
+
+4. Click **Save** and give it a name
+5. Copy the query ID from the URL (e.g., `dune.com/queries/123456` → ID is `123456`)
+
+### Step 2: Get Your Dune API Key
+
+1. Go to [dune.com/settings/api](https://dune.com/settings/api)
+2. Create an API key
+
+### Step 3: Run the Backfill
+
+Visit this URL (replace with your values):
+
+```
+https://your-app.vercel.app/api/backfill?dune_key=YOUR_DUNE_KEY&query_id=YOUR_QUERY_ID
+```
+
+This takes 1-2 minutes. You'll see a success message with how many days were imported.
 
 ---
 

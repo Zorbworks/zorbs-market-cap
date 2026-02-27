@@ -10,6 +10,7 @@ export default function Home() {
   const [zorb, setZorb] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedPeriod, setSelectedPeriod] = useState('month'); // hour, day, week, month, year
 
   const fetchData = async () => {
     try {
@@ -95,13 +96,56 @@ export default function Home() {
   };
 
   const formatChartTime = (timestamp) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    });
+    if (selectedPeriod === 'hour') {
+      return new Date(timestamp).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } else if (selectedPeriod === 'day') {
+      return new Date(timestamp).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } else {
+      return new Date(timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+    }
   };
 
-  const chartData = history.map(point => ({
+  const getPeriodMs = (period) => {
+    switch (period) {
+      case 'hour': return 3600000;
+      case 'day': return 86400000;
+      case 'week': return 604800000;
+      case 'month': return 2592000000;
+      case 'year': return 31536000000;
+      default: return 2592000000;
+    }
+  };
+
+  const getPeriodLabel = (period) => {
+    switch (period) {
+      case 'hour': return '1H';
+      case 'day': return '24H';
+      case 'week': return '7D';
+      case 'month': return '30D';
+      case 'year': return '1Y';
+      default: return '30D';
+    }
+  };
+
+  const filterHistoryByPeriod = () => {
+    const now = Date.now();
+    const periodMs = getPeriodMs(selectedPeriod);
+    const cutoff = now - periodMs;
+    return history.filter(point => point.timestamp >= cutoff);
+  };
+
+  const chartData = filterHistoryByPeriod().map(point => ({
     time: point.timestamp,
     floor: point.floorPrice,
   }));
@@ -170,9 +214,15 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Change indicators */}
+          {/* Change indicators - clickable to change chart period */}
           <div style={styles.changesRow}>
-            <div style={styles.changeBox}>
+            <button 
+              onClick={() => setSelectedPeriod('hour')}
+              style={{
+                ...styles.changeBox,
+                ...(selectedPeriod === 'hour' ? styles.changeBoxActive : {})
+              }}
+            >
               <span style={styles.changeLabel}>1H</span>
               <span style={{
                 ...styles.changeValue,
@@ -181,8 +231,14 @@ export default function Home() {
               }}>
                 {formatPercent(changes.hour)}
               </span>
-            </div>
-            <div style={styles.changeBox}>
+            </button>
+            <button 
+              onClick={() => setSelectedPeriod('day')}
+              style={{
+                ...styles.changeBox,
+                ...(selectedPeriod === 'day' ? styles.changeBoxActive : {})
+              }}
+            >
               <span style={styles.changeLabel}>24H</span>
               <span style={{
                 ...styles.changeValue,
@@ -191,8 +247,14 @@ export default function Home() {
               }}>
                 {formatPercent(changes.day)}
               </span>
-            </div>
-            <div style={styles.changeBox}>
+            </button>
+            <button 
+              onClick={() => setSelectedPeriod('week')}
+              style={{
+                ...styles.changeBox,
+                ...(selectedPeriod === 'week' ? styles.changeBoxActive : {})
+              }}
+            >
               <span style={styles.changeLabel}>7D</span>
               <span style={{
                 ...styles.changeValue,
@@ -201,8 +263,14 @@ export default function Home() {
               }}>
                 {formatPercent(changes.week)}
               </span>
-            </div>
-            <div style={styles.changeBox}>
+            </button>
+            <button 
+              onClick={() => setSelectedPeriod('month')}
+              style={{
+                ...styles.changeBox,
+                ...(selectedPeriod === 'month' ? styles.changeBoxActive : {})
+              }}
+            >
               <span style={styles.changeLabel}>30D</span>
               <span style={{
                 ...styles.changeValue,
@@ -211,8 +279,14 @@ export default function Home() {
               }}>
                 {formatPercent(changes.month)}
               </span>
-            </div>
-            <div style={styles.changeBox}>
+            </button>
+            <button 
+              onClick={() => setSelectedPeriod('year')}
+              style={{
+                ...styles.changeBox,
+                ...(selectedPeriod === 'year' ? styles.changeBoxActive : {})
+              }}
+            >
               <span style={styles.changeLabel}>1Y</span>
               <span style={{
                 ...styles.changeValue,
@@ -221,13 +295,13 @@ export default function Home() {
               }}>
                 {formatPercent(changes.year)}
               </span>
-            </div>
+            </button>
           </div>
 
           {/* Chart */}
           {chartData.length > 1 && (
             <div style={styles.chartContainer}>
-              <span style={styles.chartLabel}>FLOOR PRICE — 30D</span>
+              <span style={styles.chartLabel}>FLOOR PRICE — {getPeriodLabel(selectedPeriod)}</span>
               <ResponsiveContainer width="100%" height={150}>
                 <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                   <defs>
@@ -245,7 +319,10 @@ export default function Home() {
                     tickLine={false}
                   />
                   <YAxis 
-                    domain={['auto', 'auto']}
+                    domain={([dataMin, dataMax]) => {
+                      const padding = (dataMax - dataMin) * 0.1 || dataMin * 0.05;
+                      return [dataMin - padding, dataMax + padding];
+                    }}
                     stroke="rgba(255,255,255,0.3)"
                     tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
                     axisLine={false}
@@ -475,6 +552,13 @@ const styles = {
     borderRadius: '8px',
     minWidth: '60px',
     backdropFilter: 'blur(10px)',
+    border: '1px solid transparent',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  changeBoxActive: {
+    border: '1px solid rgba(255,255,255,0.5)',
+    background: 'rgba(255,255,255,0.1)',
   },
   changeLabel: {
     display: 'block',

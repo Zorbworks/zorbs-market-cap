@@ -39,7 +39,7 @@ export async function GET() {
     const current = parsed[parsed.length - 1];
 
     // Find closest data points to each time period
-    const findClosest = (targetTime) => {
+    const findClosest = (targetTime, maxDiff = 1800000) => {
       let closest = null;
       let minDiff = Infinity;
       for (const point of parsed) {
@@ -49,26 +49,23 @@ export async function GET() {
           closest = point;
         }
       }
-      // Only return if within 30 minutes of target
-      return minDiff < 1800000 ? closest : null;
+      // Return if within acceptable range (default 30 mins, but 12 hours for older data)
+      return minDiff < maxDiff ? closest : null;
     };
 
-    const hourData = findClosest(hourAgo);
-    const dayData = findClosest(dayAgo);
-    const weekData = findClosest(weekAgo);
-    const monthData = findClosest(monthAgo);
-    const yearData = findClosest(yearAgo);
+    const hourData = findClosest(hourAgo, 1800000); // 30 min tolerance
+    const dayData = findClosest(dayAgo, 7200000);   // 2 hour tolerance
+    const weekData = findClosest(weekAgo, 43200000); // 12 hour tolerance
+    const monthData = findClosest(monthAgo, 43200000);
+    const yearData = findClosest(yearAgo, 86400000); // 24 hour tolerance
 
     const calcChange = (old, current) => {
       if (!old || old.floorPrice === 0) return null;
       return ((current.floorPrice - old.floorPrice) / old.floorPrice) * 100;
     };
 
-    // Filter history to last 30 days for chart
-    const chartHistory = parsed.filter(p => p.timestamp >= monthAgo);
-
     return Response.json({
-      history: chartHistory,
+      history: parsed, // Return full year of data
       changes: {
         hour: calcChange(hourData, current),
         day: calcChange(dayData, current),
@@ -77,6 +74,7 @@ export async function GET() {
         year: calcChange(yearData, current),
       },
       current,
+      dataPoints: parsed.length,
     });
   } catch (error) {
     return Response.json(
