@@ -48,14 +48,37 @@ export async function GET() {
       });
     }
 
+    // Filter outliers using median-based approach
+    const filterOutliers = (data) => {
+      if (data.length < 5) return data;
+      
+      // Get all floor prices and calculate median
+      const prices = data.map(d => d.floorPrice).filter(p => p > 0).sort((a, b) => a - b);
+      const mid = Math.floor(prices.length / 2);
+      const median = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
+      
+      // Also calculate the 75th percentile for a more robust threshold
+      const p75Index = Math.floor(prices.length * 0.75);
+      const p75 = prices[p75Index];
+      
+      // Use the higher of: 4x median or 2x the 75th percentile
+      const threshold = Math.max(median * 4, p75 * 2);
+      
+      // Filter out points above threshold
+      return data.filter(point => point.floorPrice <= threshold);
+    };
+
+    const filtered = filterOutliers(parsed);
+
     const current = parsed[parsed.length - 1];
 
     // Find closest data point to target time with variable tolerance
+    // Use filtered data for change calculations too
     const findClosest = (targetTime, maxToleranceMs) => {
       let closest = null;
       let minDiff = Infinity;
       
-      for (const point of parsed) {
+      for (const point of filtered) {
         const diff = Math.abs(point.timestamp - targetTime);
         if (diff < minDiff && diff <= maxToleranceMs) {
           minDiff = diff;
@@ -78,7 +101,7 @@ export async function GET() {
     };
 
     return Response.json({
-      history: parsed,
+      history: filtered,
       changes: {
         hour: calcChange(hourData, current),
         day: calcChange(dayData, current),
@@ -87,11 +110,13 @@ export async function GET() {
         year: calcChange(yearData, current),
       },
       current,
-      dataPoints: parsed.length,
+      dataPoints: filtered.length,
       debug: {
-        oldest: parsed[0]?.timestamp ? new Date(parsed[0].timestamp).toISOString() : null,
+        oldest: filtered[0]?.timestamp ? new Date(filtered[0].timestamp).toISOString() : null,
         newest: current?.timestamp ? new Date(current.timestamp).toISOString() : null,
         totalPoints: parsed.length,
+        filteredPoints: filtered.length,
+        removedOutliers: parsed.length - filtered.length,
       }
     });
   } catch (error) {
