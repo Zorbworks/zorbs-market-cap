@@ -9,6 +9,28 @@ const mono = JetBrains_Mono({
 export const metadata = {
   title: 'Zorbs Market Cap',
   description: 'Live market capitalization tracker for Zorbs by ZORA',
+  openGraph: {
+    title: 'Zorbs Market Cap',
+    description: 'Live market capitalization tracker for Zorbs by ZORA',
+    url: 'https://zorbs-market-cap.vercel.app',
+    siteName: 'Zorbs Market Cap',
+    images: [
+      {
+        url: '/api/og',
+        width: 1200,
+        height: 630,
+        alt: 'Zorbs Market Cap',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Zorbs Market Cap',
+    description: 'Live market capitalization tracker for Zorbs by ZORA',
+    images: ['/api/og'],
+  },
 }
 
 export default function RootLayout({ children }) {
