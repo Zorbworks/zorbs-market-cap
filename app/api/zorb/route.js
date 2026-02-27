@@ -67,42 +67,70 @@ export async function GET() {
       tokenId = '1';
     }
 
-    // Format buyer display as truncated address
+    // Resolve ENS name for buyer using Alchemy's lookup
     let buyerDisplay = null;
-    if (buyer) {
-      buyerDisplay = `${buyer.slice(0, 6)}...${buyer.slice(-4)}`;
-    }
-
-    // Get image from Alchemy's cached NFT metadata
-    let imageUrl = null;
+    let ensName = null;
     
-    const nftResponse = await fetch(
-      `https://eth-mainnet.g.alchemy.com/nft/v3/${apiKey}/getNFTMetadata?contractAddress=${ZORBS_CONTRACT}&tokenId=${tokenId}&refreshCache=false`
-    );
-
-    if (nftResponse.ok) {
-      const nftData = await nftResponse.json();
-      // Prefer Alchemy's cached URL
-      imageUrl = 
-        nftData.image?.cachedUrl || 
-        nftData.image?.pngUrl ||
-        nftData.image?.originalUrl ||
-        null;
-    }
-
-    // Generate Zorb gradient colors from buyer address for CSS fallback
-    let gradientColors = null;
     if (buyer) {
-      gradientColors = generateZorbColors(buyer);
+      // Try to get ENS name via reverse lookup
+      try {
+        // Convert address to reverse lookup format
+        const reverseNode = buyer.toLowerCase().slice(2) + '.addr.reverse';
+        
+        // Use eth_call to get the ENS name
+        const ensResponse = await fetch(
+          `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'eth_call',
+              params: [{
+                to: '0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb', // ENS Reverse Registrar
+                data: '0x691f3431' + buyer.toLowerCase().slice(2).padStart(64, '0')
+              }, 'latest']
+            })
+          }
+        );
+        
+        const ensData = await ensResponse.json();
+        
+        // If we got a result, try to decode it
+        if (ensData.result && ensData.result.length > 130) {
+          // The result contains the ENS name - extract it
+          const hex = ensData.result.slice(130);
+          const nameBytes = hex.match(/.{2}/g) || [];
+          let name = '';
+          for (const byte of nameBytes) {
+            const code = parseInt(byte, 16);
+            if (code >= 32 && code < 127) {
+              name += String.fromCharCode(code);
+            }
+          }
+          if (name && name.includes('.eth')) {
+            ensName = name.trim();
+          }
+        }
+      } catch (e) {
+        console.log('ENS lookup failed:', e.message);
+      }
+      
+      // Format display: ENS name or truncated address
+      if (ensName) {
+        buyerDisplay = ensName;
+      } else {
+        buyerDisplay = `${buyer.slice(0, 6)}...${buyer.slice(-4)}`;
+      }
     }
 
     return Response.json({
       tokenId,
-      imageUrl,
-      gradientColors,
       name: `Zorb #${tokenId}`,
       buyer,
       buyerDisplay,
+      ensName,
       timestamp: transferTimestamp,
       isRecentTransfer: !!transferTimestamp,
     });
@@ -112,24 +140,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
-
-// Generate Zorb gradient colors from wallet address
-function generateZorbColors(address) {
-  const addr = address.toLowerCase();
-  
-  // Use parts of the address to generate hues
-  const h1 = parseInt(addr.slice(2, 10), 16) % 360;
-  const h2 = (h1 + 40) % 360;
-  const h3 = (h1 + 80) % 360;
-  const h4 = (h1 + 120) % 360;
-  const h5 = (h1 + 160) % 360;
-  
-  return {
-    c1: `hsl(${h1}, 70%, 60%)`,
-    c2: `hsl(${h2}, 70%, 55%)`,
-    c3: `hsl(${h3}, 70%, 50%)`,
-    c4: `hsl(${h4}, 70%, 55%)`,
-    c5: `hsl(${h5}, 70%, 60%)`,
-  };
 }
